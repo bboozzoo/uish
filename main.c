@@ -1,25 +1,110 @@
-#include <histedit.h>
 #include <signal.h>
 #include <string.h>
+#include <stdlib.h>
+#include "uish.h"
 
-static const char * compl_strings[] = { 
-                                    "logout",
-                                    "login",
-                                    "exit", 
-                                    NULL
-                                };
-
+/* local types */
 typedef enum {
     RES_CONTINUE,
     RES_EXIT,
 } res_status_t;
 
-static void sig_handler(int sig) {
+/* local functions */
+static int uish_init(struct uish_s * uish, const char * name, const char * prompt);
+static void uish_end(struct uish_s * uish);
+static int uish_set_prompt(struct uish_s * uish, const char * prompt);
+static void sig_handler(int sig);
+static char * get_prompt(EditLine * el);
+static void setup_signals(void);
+static History * setup_history(void);
+static void cleanup_history(History * hist);
+static EditLine * setup_el(const char * name);
+static void cleanup_el(EditLine * el);
+static Tokenizer * setup_tok(const char * separator);
+static void cleanup_tok(Tokenizer * tok);
+static res_status_t handle_input(struct uish_s * uish, const char * input, unsigned int len);
+static unsigned char * completion(EditLine * el, int ch);
 
+/* static data */
+static const char * compl_strings[] = { 
+                                    "logout",
+                                    "login",
+                                    "logat",
+                                    "exit", 
+                                    NULL
+                                };
+
+
+static struct uish_s uish;
+
+
+/* signal handler */
+static void sig_handler(int sig) {
+}
+
+/* initialise main struct */
+static int uish_init(struct uish_s * uish, const char * name, const char * prompt) {
+    if (NULL == uish)
+        goto return_err;
+
+    memset(uish, 0, sizeof(struct uish_s));
+
+    uish->prompt = strdup(prompt);
+    if (NULL == uish->prompt)
+        goto return_err;
+
+
+    uish->hist = setup_history();
+    if (NULL == uish->hist)
+        goto return_err;
+
+    uish->el = setup_el(name);
+    if (NULL == uish->el)
+        goto return_err;
+
+    uish->tok = setup_tok(NULL);
+    if (NULL == uish->tok)
+        goto return_err;
+
+    return 1;
+return_err:
+    return 0;
+}
+
+/* do neccessary cleanup */
+static void uish_end(struct uish_s * uish) {
+    cleanup_history(uish->hist);
+    cleanup_el(uish->el);
+    cleanup_tok(uish->tok);
+    free(uish->prompt);
+}
+
+static int uish_set_prompt(struct uish_s * uish, const char * prompt) {
+    char * oldpr = NULL;
+    if (NULL == uish || NULL == uish->prompt)
+        return 0;
+
+    oldpr = uish->prompt;
+    uish->prompt = strdup(prompt);
+    if (NULL == uish->prompt) {
+        uish->prompt = oldpr;
+        printf("setting new prompt failed\n");
+        return 0;
+    }
+    return 1;
 }
 
 static char * get_prompt(EditLine * el) {
-    return "% ";
+    return uish.prompt;
+}
+
+static Tokenizer * setup_tok(const char * separator) {
+    Tokenizer * tok = tok_init(separator);
+    return tok;
+}
+
+static void cleanup_tok(Tokenizer * tok) {
+    tok_end(tok);
 }
 
 static void setup_signals(void) {
@@ -33,7 +118,37 @@ static void setup_signals(void) {
     sigaction(SIGHUP, &sigact, NULL);
 }
 
-static void setup_history(void) {
+static History * setup_history(void) {
+    History * ret = history_init();
+    if (ret != NULL) {
+        HistEvent ev;
+        history(ret, &ev, H_SETSIZE, 100);
+    }
+    return ret;
+}
+
+static void cleanup_history(History * hist) {
+    history_end(hist);
+}
+
+static EditLine * setup_el(const char * name) {
+    EditLine * el = NULL;
+
+    el = el_init(name, stdin, stdout, stderr);
+    if (el != NULL) {
+        el_set(el, EL_SIGNAL, 1);
+        el_set(el, EL_PROMPT, get_prompt);
+        el_set(el, EL_EDITOR, "emacs");
+        el_set(el, EL_BIND, "-e", "^P", "ed-prev-history", NULL);
+        el_set(el, EL_BIND, "-e", "^N", "ed-next-history", NULL);  
+        el_set(el, EL_ADDFN, "ed-complete", "completion", completion);
+        el_set(el, EL_BIND, "^I", "ed-complete", NULL);
+    }
+    return el;
+}
+
+static void cleanup_el(EditLine * el) {
+    el_end(el);
 }
 
 static unsigned char * completion(EditLine * el, int ch) {
@@ -63,9 +178,11 @@ static unsigned char * completion(EditLine * el, int ch) {
       /*      printf("got match: %s\n", compl_strings[i]); */
             if (compl_str == NULL) {
                 compl_str = compl_strings[i];
-            } else {
-                only_one = 0;
-                printf("\n%s\n", compl_str);
+            } else { /* one match was already found */
+                if (only_one != 0) { /* if this is a second match, show the first */
+                    only_one = 0;
+                    printf("\n%s\n", compl_str);
+                }
             }
             if (only_one == 0) {
                 printf("%s\n", compl_strings[i]);
@@ -83,59 +200,65 @@ static unsigned char * completion(EditLine * el, int ch) {
     return (unsigned char *) result;
 }
 
-res_status_t handle_input(const char * input, unsigned int len) {
-    if (strncmp(input, "exit", len) == 0 || strncmp(input, "logout", len) == 0)
+res_status_t handle_input(struct uish_s * uish, const char * input, unsigned int len) {
+    if (input == NULL)
         return RES_EXIT;
+
+    if (len > 0) {
+        const LineInfo * li = el_line(uish_el(uish));
+        int argc = 0;
+        const char ** argv = NULL;
+        int res = 0;
+
+        res = tok_line(uish_tok(uish), li, &argc, &argv, NULL, NULL);
+        if (res == 0) {
+            int i = 0;
+            printf("arg count: %d\n", argc);
+            for (; i < argc; i++) {
+                printf("arg: %s\n", argv[i]);
+            }
+            if (argc == 2) {
+                if (strcmp(argv[0], "prompt") == 0) {
+                    uish_set_prompt(uish, argv[1]);
+                }
+            }
+        }
+        tok_reset(uish_tok(uish));
+        /*
+        if (strncmp(input, "exit", len) == 0 || strncmp(input, "logout", len) == 0)
+            return RES_EXIT;
+            */
+    }
     return RES_CONTINUE;
 }
 
 int main(int argc, char * argv[]) {
-/*    History * hist = NULL;
-    HistEvent ev; */
-    Tokenizer * tok = NULL;
-    EditLine * el = NULL;
     int run = 0;
 
     /* setup signals */
     setup_signals();
-    /* init history */
-    /*
-    hist = history_init();
-    */
     /* setup libedit */
-    el = el_init(argv[0], stdin, stdout, stderr);
-    el_set(el, EL_SIGNAL, 1);
-    el_set(el, EL_PROMPT, get_prompt);
-    el_set(el, EL_EDITOR, "emacs");
-    el_set(el, EL_ADDFN, "ed-complete", "completion", completion);
-    el_set(el, EL_BIND, "^I", "ed-complete", NULL);
-
-    run = 1;
+    if (uish_init(&uish, argv[0], "% "))
+        run = 1;
 
     while (run) {
         const char * input = NULL;
         int count = 0;
         res_status_t res = RES_CONTINUE;
-        input = el_gets(el, &count);
-/*        printf("read: %p count: %d\n", input, count); */
-        if (input == NULL && count == 0) {
+        input = el_gets(uish_el(&uish), &count);
+        res = handle_input(&uish, input, count); 
+        if (res == RES_EXIT) {
             run = 0;
             continue;
-        } else {
-            printf("input: %s count: %d\n", input, count);
-            res = handle_input(input, count - 1); 
         }
-        if (res == RES_EXIT)
-            run = 0;
+        /*
+        if (count - 1 > 0) {
+            history(hist, &ev, H_ENTER, input);
+        }
+        */
     }
-    if (NULL != el)
-        el_end(el);
-    if (NULL != tok)
-        tok_end(tok);
-    /*
-    if (NULL != hist)
-        history_end(hist);
-    */
+
+    uish_end(&uish);
     return 0;
 }
 
