@@ -34,7 +34,7 @@ void dbg_log(int lvl, const char * fcn, const char * fil, unsigned int line, con
         NULL != fcn &&
         NULL != fil &&
         0 != line) {
-        fprintf(dest, "%10s:%-4d%%%s: ", fil, line, fcn);
+        fprintf(dest, "%10s:%-4d|%s: ", fil, line, fcn);
     }
 
     va_start(l, format);
