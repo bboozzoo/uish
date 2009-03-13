@@ -1,6 +1,8 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
+#include "debug.h"
 #include "uish.h"
 
 /* local types */
@@ -44,6 +46,8 @@ static void sig_handler(int sig) {
 
 /* initialise main struct */
 static int uish_init(struct uish_s * uish, const char * name, const char * prompt) {
+    FILE * config = NULL;
+
     if (NULL == uish)
         goto return_err;
 
@@ -65,6 +69,17 @@ static int uish_init(struct uish_s * uish, const char * name, const char * promp
     uish->tok = setup_tok(NULL);
     if (NULL == uish->tok)
         goto return_err;
+
+    DBG(0, "opening config file\n");
+    config = fopen("../uish.conf", "r");
+    if (config != NULL) {
+        DBG(0, "parse config\n");
+        lexscan(config);
+        fclose(config);
+    } else {
+        DBG(0, "config open failed: %s\n", strerror(errno));
+        goto return_err;
+    }
 
     return 1;
 return_err:
@@ -235,12 +250,16 @@ res_status_t handle_input(struct uish_s * uish, const char * input, unsigned int
 int main(int argc, char * argv[]) {
     int run = 0;
 
+    dbg_init(stderr, 1, 1); 
     /* setup signals */
+    DBG(0, "setup signals\n");
     setup_signals();
     /* setup libedit */
+    DBG(0, "init libedit\n");
     if (uish_init(&uish, argv[0], "% "))
         run = 1;
 
+    DBG(0, "enter loop\n");
     while (run) {
         const char * input = NULL;
         int count = 0;
