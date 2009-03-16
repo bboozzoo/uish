@@ -14,5 +14,13 @@ struct uish_s {
     char * prompt;
 };
 
+typedef enum {
+    RES_CONTINUE, /* continue receiving input */
+    RES_EXIT, /* user wants to quit */
+} res_status_t;
+
+int uish_init(struct uish_s * uish, const char * argv[], const int argc, const char * prompt);
+void uish_end(struct uish_s * uish);
+res_status_t uish_handle_input(struct uish_s * uish);
 
 #endif /* __UISH_H__ */

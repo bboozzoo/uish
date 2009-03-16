@@ -6,7 +6,8 @@ include(FindPkgConfig)
 #include(${extra_cmake_modules}/flex.cmake)
 set(uish_SRCS
   main.c
-  debug.c)
+  debug.c
+  uish.c)
 add_flex_files(uish_SRCS scan.l)
 
 option(ENABLE_DEBUG_SYMBOLS
