@@ -140,9 +140,7 @@ static unsigned char * completion(EditLine * el, int ch) {
     return (unsigned char *) result;
 }
 /* initialise main struct */
-int uish_init(struct uish_s * uish, const char * argv[], const int argc, const char * prompt) {
-    FILE * config = NULL;
-    char * config_file = strdup("/etc/uish.conf");
+int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE * config) {
     int optchar = -1;
 
     if (NULL == uish)
@@ -150,19 +148,6 @@ int uish_init(struct uish_s * uish, const char * argv[], const int argc, const c
 
     memset(uish, 0, sizeof(struct uish_s));
     local_uish = uish;
-
-    do {
-        optchar = getopt(argc, (char * const *) argv, "f:");
-        switch (optchar) {
-            case 'f':
-                DBG(0, "user defined config file: %s\n", optarg);
-                config_file = strdup(optarg);
-                break;
-            default:
-                break;
-        }
-
-    } while (optchar != -1);
 
     uish->prompt = strdup(prompt);
     if (NULL == uish->prompt)
@@ -173,7 +158,7 @@ int uish_init(struct uish_s * uish, const char * argv[], const int argc, const c
     if (NULL == uish->hist)
         goto return_err;
 
-    uish->el = setup_el(argv[0]);
+    uish->el = setup_el(self);
     if (NULL == uish->el)
         goto return_err;
 
@@ -181,17 +166,10 @@ int uish_init(struct uish_s * uish, const char * argv[], const int argc, const c
     if (NULL == uish->tok)
         goto return_err;
 
-    DBG(0, "opening config file: %s\n", config_file);
-    config = fopen(config_file, "r");
-    if (config != NULL) {
-        DBG(0, "parse config\n");
+    if (config != NULL)
         lexscan(config);
-        fclose(config);
-    } else {
-        DBG(0, "config open failed: %s\n", strerror(errno));
+    else
         goto return_err;
-    }
-    free(config_file);
 
     return 1;
 return_err:

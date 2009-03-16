@@ -2,6 +2,7 @@
 #define __UISH_H__
 
 #include <histedit.h>
+#include <stdio.h>
 
 struct uish_s {
 #define uish_hist(__uish) ((__uish)->hist)
@@ -19,7 +20,7 @@ typedef enum {
     RES_EXIT, /* user wants to quit */
 } res_status_t;
 
-int uish_init(struct uish_s * uish, const char * argv[], const int argc, const char * prompt);
+int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE * config);
 void uish_end(struct uish_s * uish);
 res_status_t uish_handle_input(struct uish_s * uish);
 
