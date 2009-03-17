@@ -8,6 +8,7 @@
 #include "scan.h"
 
 /* local types */
+
 /* local functions */
 static History * setup_history(void);
 static void cleanup_history(History * hist);
@@ -166,6 +167,7 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
     if (NULL == uish->tok)
         goto return_err;
 
+    TAILQ_INIT(&uish->commands);
     if (config != NULL)
         lexscan(config);
     else

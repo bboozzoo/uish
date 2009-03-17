@@ -5,6 +5,17 @@
 #include <histedit.h>
 #include <stdio.h>
 
+struct uish_comm_s;
+
+TAILQ_HEAD(uish_commands_head_s, uish_comm_s); /* commands list head */
+
+struct uish_comm_s {
+    char * name;  /* user command name string */
+    char * command; /* the actual command to be executed, should be NULL if no command */
+    TAILQ_ENTRY(uish_comm_s) list_el; /* commands list member */
+    struct uish_commands_head_s commands_head; /* list of further nested commands */
+};
+
 struct uish_s {
 #define uish_hist(__uish) ((__uish)->hist)
     History * hist;
@@ -12,7 +23,8 @@ struct uish_s {
     EditLine * el;
 #define uish_tok(__uish) ((__uish)->tok)
     Tokenizer * tok;
-    void * commands;
+#define uish_commands(__uish) ((__uish)->commands)
+    struct uish_commands_head_s commands;
     char * prompt;
 };
 
