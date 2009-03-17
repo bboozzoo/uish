@@ -1,5 +1,6 @@
 %{
 #include <math.h>
+#include "uish.h"
 #include "debug.h"
 static int in_section = 0;
 static int line_nr = 1;
@@ -37,7 +38,7 @@ COMMAND_NAME [a-zA-Z]+
                 DBG(0, "string: %s\n", yytext);
                 }
 
-^#.*    /* eat up one-line comments */
+#.*    /* eat up one-line comments */
 
 [ \t]+          /* eat up whitespace */
 

@@ -1,6 +1,7 @@
 #ifndef __UISH_H__
 #define __UISH_H__
 
+#include <sys/queue.h>
 #include <histedit.h>
 #include <stdio.h>
 

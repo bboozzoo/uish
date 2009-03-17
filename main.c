@@ -67,10 +67,11 @@ static void close_config(FILE * config) {
 
 int main(int argc, const char * argv[]) {
     int run = 0;
-    char * config_file = find_config_file();
+    char * config_file = NULL;
     FILE * config = NULL;
     int optchar = 0;
 
+    config_file = find_config_file();
     dbg_init(stderr, 1, 1); 
     /* setup signals */
     DBG(0, "setup signals\n");
