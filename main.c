@@ -87,6 +87,7 @@ int main(int argc, const char * argv[]) {
                 config_file = strdup(optarg);
                 break;
             case 'h':
+            case '?':
                 show_help();
                 goto do_cleanup;
                 break;

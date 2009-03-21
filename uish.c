@@ -8,7 +8,10 @@
 #include "scan.h"
 
 /* local types */
-
+struct predef_command_s {
+    const char * name;
+    uish_predef_command_t id;
+};
 /* local functions */
 static History * setup_history(void);
 static void cleanup_history(History * hist);
@@ -20,13 +23,14 @@ static unsigned char * completion(EditLine * el, int ch);
 static char * get_prompt(EditLine * el);
 static int uish_set_prompt(struct uish_s * uish, const char * prompt);
 /* static data */
-static const char * compl_strings[] = { 
-                                    "logout",
-                                    "login",
-                                    "logat",
-                                    "exit", 
-                                    NULL
-                                };
+static struct predef_command_s __predefined_commands[] = {
+                    {"_exit", UISH_COMMAND_EXIT},
+                    {NULL, UISH_COMMAND_INVALID}
+};
+static const char * compl_strings[] = {"exit",
+                                       "logout",
+                                       NULL };
+
 static struct uish_s * local_uish;
 
 /* functions */
@@ -168,9 +172,12 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
         goto return_err;
 
     TAILQ_INIT(&uish->commands);
-    if (config != NULL)
-        lexscan(config);
-    else
+    if (config != NULL) {
+        if (SCAN_ERR == lexscan(config, uish)) {
+            DBG(0, "error while parsing config\n");
+            goto return_err;
+        }
+    } else
         goto return_err;
 
     return 1;
@@ -223,3 +230,74 @@ res_status_t uish_handle_input(struct uish_s * uish) {
     return RES_CONTINUE;
 }
 
+/* command handling */
+struct uish_comm_s * uish_cmd_new(struct uish_s * uish, char * text) {
+    struct uish_comm_s * res = calloc(1, sizeof(struct uish_comm_s));
+    if (NULL != res) {
+        res->name = strdup(text);
+        if (NULL == res->name) {
+            DBG(0, "allocating command name failed\n");
+            free(res);
+            res = NULL;
+        }
+        TAILQ_INIT(&res->commands_head);
+    } else {
+        DBG(0, "allocating command failed\n");
+    }
+    return res;
+}
+
+/* command is expected to be removed from list already */
+void uish_cmd_free(struct uish_comm_s * comm) {
+    if (NULL != comm) {
+        DBG(0, "removing command, name: %s\n", comm->name);
+        if (NULL != comm->name)
+            free(comm->name);
+        if (UISH_CMDTYPE_USER == comm->type && NULL != comm->cmd.command) {
+            DBG(0, "user command %s\n", comm->cmd.command);
+            free(comm->cmd.command);
+        }
+        free(comm);
+    }
+}
+
+/* check if command is predefined */
+uish_predef_command_t check_predef_command(const char * text) {
+    uish_predef_command_t res = UISH_COMMAND_INVALID;
+    struct predef_command_s * pre;
+    for (pre = __predefined_commands; pre->name != NULL && pre->id != UISH_COMMAND_INVALID; pre++) {
+        DBG(0, "compare \'%s\' with \'%s\'\n", text, pre->name);
+        if (0 == strcmp(text, pre->name)) {
+            DBG(0, "found predefined comand for: %s, predef id: %d\n", text, pre->id);
+            res = pre->id;
+        }
+    }
+    return res;
+}
+
+int uish_cmd_set(struct uish_comm_s * comm, char * cmd_text) {
+    int res = 0;
+    if (NULL != comm && NULL != cmd_text) {
+        DBG(0, "user command: %s\n", cmd_text);
+        uish_predef_command_t predef_id = check_predef_command(cmd_text);
+        if (UISH_COMMAND_INVALID != predef_id) {
+            DBG(0, "command is predefined\n");
+            comm->type = UISH_CMDTYPE_PREDEFINED;
+            comm->cmd.predef_command = predef_id;
+            res = 1;
+        } else {
+            comm->type = UISH_CMDTYPE_USER;
+            comm->cmd.command = strdup(cmd_text);
+            if (NULL == comm->cmd.command) {
+                DBG(0, "command allocation failed\n");
+            } else {
+                res = 1;
+            }
+        }
+    }
+    return res;
+}
+
+int uish_cmd_add_as_child(struct uish_comm_s * parent, struct uish_comm_s * cmd) {
+    return 0;
+}
