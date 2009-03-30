@@ -28,6 +28,7 @@ struct uish_comm_s {
     } cmd;
     TAILQ_ENTRY(uish_comm_s) list_el; /* commands list member */
     struct uish_commands_head_s commands_head; /* list of further nested commands */
+    struct uish_comm_s * parent; /* parent, needed for tree */
 };
 
 struct uish_s {
@@ -51,10 +52,12 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
 void uish_end(struct uish_s * uish);
 res_status_t uish_handle_input(struct uish_s * uish);
 /* command structure manipulation */
-struct uish_comm_s * uish_cmd_new(struct uish_s * uish, char * text);
+struct uish_comm_s * uish_cmd_new(char * text);
 void uish_cmd_free(struct uish_comm_s * comm);
 int uish_cmd_set(struct uish_comm_s * comm, char * cmd_text);
 int uish_cmd_add_as_child(struct uish_comm_s * parent, struct uish_comm_s * cmd);
+struct uish_comm_s * uish_cmd_get_parent(struct uish_comm_s * comm);
+void uish_cmd_set_parent(struct uish_comm_s * comm, struct uish_comm_s * parent);
 
 #endif /* __UISH_H__ */
 

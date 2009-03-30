@@ -231,7 +231,7 @@ res_status_t uish_handle_input(struct uish_s * uish) {
 }
 
 /* command handling */
-struct uish_comm_s * uish_cmd_new(struct uish_s * uish, char * text) {
+struct uish_comm_s * uish_cmd_new(char * text) {
     struct uish_comm_s * res = calloc(1, sizeof(struct uish_comm_s));
     if (NULL != res) {
         res->name = strdup(text);
@@ -301,3 +301,13 @@ int uish_cmd_set(struct uish_comm_s * comm, char * cmd_text) {
 int uish_cmd_add_as_child(struct uish_comm_s * parent, struct uish_comm_s * cmd) {
     return 0;
 }
+
+struct uish_comm_s * uish_cmd_get_parent(struct uish_comm_s * comm) {
+    return (comm != NULL) ? comm->parent : NULL;
+}
+
+void uish_cmd_set_parent(struct uish_comm_s * comm, struct uish_comm_s * parent) {
+    if (comm != NULL) 
+        comm->parent = parent;
+}
+
