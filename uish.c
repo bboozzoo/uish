@@ -171,7 +171,7 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
     if (NULL == uish->tok)
         goto return_err;
 
-    TAILQ_INIT(&uish->commands);
+    list_init(&uish->commands, NULL);
     if (config != NULL) {
         if (SCAN_ERR == lexscan(config, uish)) {
             DBG(0, "error while parsing config\n");
@@ -240,7 +240,8 @@ struct uish_comm_s * uish_cmd_new(char * text) {
             free(res);
             res = NULL;
         }
-        TAILQ_INIT(&res->commands_head);
+        list_init(&res->commands_head, NULL);
+        list_init(&res->list_el, res);
     } else {
         DBG(0, "allocating command failed\n");
     }
@@ -309,5 +310,9 @@ struct uish_comm_s * uish_cmd_get_parent(struct uish_comm_s * comm) {
 void uish_cmd_set_parent(struct uish_comm_s * comm, struct uish_comm_s * parent) {
     if (comm != NULL) 
         comm->parent = parent;
+}
+
+void uish_set_commands(struct uish_s * uish, struct list_head_s * commands) {
+    list_head_swap(commands, &uish->commands);
 }
 

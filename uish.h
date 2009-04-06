@@ -1,13 +1,11 @@
 #ifndef __UISH_H__
 #define __UISH_H__
 
-#include <sys/queue.h>
 #include <histedit.h>
 #include <stdio.h>
+#include "list.h"
 
 struct uish_comm_s;
-
-TAILQ_HEAD(uish_commands_head_s, uish_comm_s); /* commands list head */
 
 typedef enum {
     UISH_COMMAND_INVALID = 0,
@@ -26,8 +24,8 @@ struct uish_comm_s {
         char * command; /* the actual command to be executed, should be NULL there is nothing to be executed  */
         uish_predef_command_t predef_command;
     } cmd;
-    TAILQ_ENTRY(uish_comm_s) list_el; /* commands list member */
-    struct uish_commands_head_s commands_head; /* list of further nested commands */
+    struct list_head_s list_el; /* commands list member */
+    struct list_head_s commands_head; /* list of further nested commands */
     struct uish_comm_s * parent; /* parent, needed for tree */
 };
 
@@ -39,7 +37,7 @@ struct uish_s {
 #define uish_tok(__uish) ((__uish)->tok)
     Tokenizer * tok;
 #define uish_commands(__uish) ((__uish)->commands)
-    struct uish_commands_head_s commands;
+    struct list_head_s commands;
     char * prompt;
 };
 
@@ -51,6 +49,7 @@ typedef enum {
 int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE * config);
 void uish_end(struct uish_s * uish);
 res_status_t uish_handle_input(struct uish_s * uish);
+void uish_set_commands(struct uish_s * uish, struct list_head_s * commands);
 /* command structure manipulation */
 struct uish_comm_s * uish_cmd_new(char * text);
 void uish_cmd_free(struct uish_comm_s * comm);
