@@ -69,6 +69,7 @@ static EditLine * setup_el(const char * name) {
 }
 
 static void cleanup_el(EditLine * el) {
+    DBG(0, "clean libedit\n");
     el_end(el);
 }
 
@@ -187,6 +188,10 @@ return_err:
 
 /* do neccessary cleanup */
 void uish_end(struct uish_s * uish) {
+    DBG(0, "uish releasing mem.., hist: %p, el: %p, tok: %p, prompt: %p\n", uish->hist,
+                                                                            uish->el,
+                                                                            uish->tok,
+                                                                            uish->prompt);
     cleanup_history(uish->hist);
     cleanup_el(uish->el);
     cleanup_tok(uish->tok);
@@ -260,6 +265,21 @@ void uish_cmd_free(struct uish_comm_s * comm) {
         }
         free(comm);
     }
+}
+
+/* release command with nested subcommands */
+void uish_cmd_free_recursive(struct uish_comm_s * comm) {
+    struct list_head_s * iter;
+    list_for(&comm->commands_head, iter) {
+        struct list_head_s * rem_iter = iter;
+        struct uish_comm_s * sub_comm = LIST_DATA(iter, struct uish_comm_s);
+        iter = iter->prev;
+        list_del(rem_iter);
+        DBG(0, "free subcommand: %s\n", sub_comm->name);
+        uish_cmd_free_recursive(sub_comm);
+    }
+    DBG(0, "free command: %s\n", comm->name);
+    uish_cmd_free(comm);
 }
 
 /* check if command is predefined */

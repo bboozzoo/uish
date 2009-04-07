@@ -53,6 +53,7 @@ void uish_set_commands(struct uish_s * uish, struct list_head_s * commands);
 /* command structure manipulation */
 struct uish_comm_s * uish_cmd_new(char * text);
 void uish_cmd_free(struct uish_comm_s * comm);
+void uish_cmd_free_recursive(struct uish_comm_s * comm);
 int uish_cmd_set(struct uish_comm_s * comm, char * cmd_text);
 int uish_cmd_add_as_child(struct uish_comm_s * parent, struct uish_comm_s * cmd);
 struct uish_comm_s * uish_cmd_get_parent(struct uish_comm_s * comm);

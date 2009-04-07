@@ -7,7 +7,6 @@
 #include "list.h"
 
 typedef enum {
-    STATE_MIN = 0,
     STATE_NULL,
     STATE_COMMAND,
     STATE_COMMAND_NAME,
@@ -54,13 +53,13 @@ static struct parser_s parser;
         return -1; \
     } while(0)
 
-#define CHECK_LAST_COMM \
-    do {                            \
-        if (NULL ==  (last_comm)) { \
-            scan_res = SCAN_ERR;    \
-            return -1;              \
-        }                           \
-    } while (0)
+#define VERIFY_STATE(__st) \
+    do { \
+        if (!parser_set_state(__st)) { \
+            parser_show_error(); \
+            SET_SCAN_ERR_RETURN; \
+        } \
+    } while(0)
 
 static void parser_init(void) {
     struct parser_s * p = &parser;
@@ -104,6 +103,34 @@ static char * parser_get_string(const char * txt) {
     return str;
 }
 
+static int parser_set_state(parse_states_t new_state) {
+    int can_switch = 0;
+    can_switch = __states[parser.state][new_state];
+    DBG(0, "old state: %d, new state: %d, can_switch: %d\n", parser.state, new_state, can_switch);
+    if (can_switch != 0)
+        parser.state = new_state;
+    return can_switch;
+}
+
+static void parser_show_error(void) {
+    fprintf(stderr, "error parsing config file, line: %d\n", parser.line_nr);
+}   
+
+static void parser_release(void) {
+    /* there might have been an error when parsing the config file
+    the only pointer (list element) still valid is top_head */
+    /* release all mem here */
+    struct list_head_s * iter;
+    list_for(&parser.top_head, iter) {
+        struct list_head_s * rem_iter = iter;
+        struct uish_comm_s * cmd = LIST_DATA(iter, struct uish_comm_s);
+        iter = iter->prev;
+        list_del(rem_iter);
+        DBG(0, "free toplevel cmd: %p\n", cmd);
+        uish_cmd_free_recursive(cmd);
+    }
+}
+
 static void __display_tree(struct list_head_s * head, int indent) {
     struct list_head_s * iter;
     list_for(head, iter) {
@@ -141,6 +168,7 @@ COMMAND_NAME [a-zA-Z]+
 %%
 
 {SECT_START} {
+    VERIFY_STATE(STATE_SECT_START);
     parser_nest_inc();
     if (parser.curr_cmd != NULL) {
         parser.curr_head = &parser.curr_cmd->commands_head;
@@ -151,7 +179,8 @@ COMMAND_NAME [a-zA-Z]+
    }
 }
 
-{SECT_END} { 
+{SECT_END} {
+    VERIFY_STATE(STATE_SECT_END);
     parser_nest_dec();
     parser.curr_cmd = uish_cmd_get_parent(parser.curr_cmd);
     DBG(0, "parent: %p\n", parser.curr_cmd);
@@ -161,13 +190,16 @@ COMMAND_NAME [a-zA-Z]+
     } else {
         parser.curr_head = &parser.top_head;
     }
+    VERIFY_STATE(STATE_NULL);
 }
 
 {COMMAND} {
+    VERIFY_STATE(STATE_COMMAND);
     DBG(0, "command token\n");
 }
 
 {COMMAND_NAME} {
+    VERIFY_STATE(STATE_COMMAND_NAME);
     DBG(0, "\tname: %s\n", yytext);
     parser.curr_cmd = uish_cmd_new(yytext);
     DBG(0, "\tallocated cmd: %s\n", parser.curr_cmd->name);
@@ -180,6 +212,7 @@ COMMAND_NAME [a-zA-Z]+
 }
 
 {SEMICOLON} {
+    VERIFY_STATE(STATE_SEMICOLON);
     DBG(0, "semicolon\n");
     parser.curr_cmd = uish_cmd_get_parent(parser.curr_cmd);
     DBG(0, "parent: %p\n", parser.curr_cmd);
@@ -190,9 +223,11 @@ COMMAND_NAME [a-zA-Z]+
         DBG(0, "parent is TOP node\n");
         parser.curr_head = &parser.top_head;
     }
+    VERIFY_STATE(STATE_NULL);
 }
 
 {STRINGDELIM}.*{STRINGDELIM} {
+    VERIFY_STATE(STATE_STRING);
     char * str = parser_get_string(yytext);
     if (NULL == str) {
         SET_SCAN_ERR_RETURN;
@@ -211,7 +246,7 @@ COMMAND_NAME [a-zA-Z]+
 }
 
 . {
-    DBG(1,"error in line: %d\n", parser.line_nr );
+    parser_show_error();
     SET_SCAN_ERR_RETURN;
 }
 
@@ -225,14 +260,19 @@ scan_res_t lexscan(FILE * src, struct uish_s * uish) {
     yyin = src;
     yylex();
     yylex_destroy();
-    if (list_is_empty(&parser.top_head)) {
-        DBG(0, "nothing found?\n");
+    if (parser.scan_res == SCAN_OK) {
+        if (list_is_empty(&parser.top_head)) {
+            DBG(0, "nothing found?\n");
+        } else {
+            __display_tree(&parser.top_head, 0);
+            DBG(0, "setting commands\n");
+            uish_set_commands(uish, &parser.top_head);
+            DBG(0, "display tree from uish\n");
+            display_tree(uish);
+        }
     } else {
-        __display_tree(&parser.top_head, 0);
-        DBG(0, "setting commands\n");
-        uish_set_commands(uish, &parser.top_head);
-        DBG(0, "display tree from uish\n");
-        display_tree(uish);
+        DBG(0, "parser errors detected, cleaning up...\n");
+        parser_release();
     }
     return parser.scan_res;
 }

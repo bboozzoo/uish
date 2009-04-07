@@ -108,7 +108,7 @@ int main(int argc, const char * argv[]) {
     /* close config, won't be needed anymore */
     close_config(config);
 
-    DBG(0, "enter input loop\n");
+    DBG(0, "enter input loop, run: %d\n", run);
     while (run) {
         res_status_t res = RES_CONTINUE;
         res = uish_handle_input(&uish); 
