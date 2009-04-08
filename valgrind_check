@@ -1,0 +1,1 @@
+valgrind --leak-check=full --show-reachable=yes -v ./uish -f ../uish.conf

@@ -1,5 +1,5 @@
 #!/bin/sh
 DIR_OMIT=temp
-rm -f cscope.files
+rm -f cscope.files cscope.out
 find . -type f | grep -v git | grep -v $DIR_OMIT | grep -v ~$ > cscope.files
 cscope -buvk

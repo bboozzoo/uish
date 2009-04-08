@@ -97,6 +97,11 @@ static int uish_set_prompt(struct uish_s * uish, const char * prompt) {
     return 1;
 }
 
+/* try to find ommand along the path specified by tokens */
+struct uish_comm_s * uish_find_cmd(struct uish_s * uish, const char * tokens, int count) {
+
+}
+
 static unsigned char * completion(EditLine * el, int ch) {
     const LineInfo * li = el_line(el);
     char * word = NULL;
@@ -106,7 +111,16 @@ static unsigned char * completion(EditLine * el, int ch) {
     unsigned int i;
     int result = CC_ERROR;
     int only_one = 1;
+    int argc = 0;
+    const char ** argv = NULL;
 
+    tok_line(uish_compl_tok(local_uish), li, &argc, &argv, NULL, NULL);
+    for (i = 0; i < argc; i++) {
+        printf("%s\n", argv[i]);
+    }
+    tok_reset(uish_compl_tok(local_uish));
+
+#if 0
     for (; tmp >= li->buffer; tmp--) {
         if (' ' == *tmp || tmp == li->buffer) {
             word = tmp;
@@ -141,7 +155,7 @@ static unsigned char * completion(EditLine * el, int ch) {
         el_insertstr(el, compl_str + word_len);
         result = CC_REFRESH;
     }
-
+#endif
 /*    printf("complete\n"); */
     return (unsigned char *) result;
 }
@@ -172,6 +186,10 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
     if (NULL == uish->tok)
         goto return_err;
 
+    uish->completion_tok = setup_tok(NULL);
+    if (NULL == uish->completion_tok)
+        goto return_err;
+
     list_init(&uish->commands, NULL);
     if (config != NULL) {
         if (SCAN_ERR == lexscan(config, uish)) {
@@ -195,6 +213,7 @@ void uish_end(struct uish_s * uish) {
     cleanup_history(uish->hist);
     cleanup_el(uish->el);
     cleanup_tok(uish->tok);
+    cleanup_tok(uish->completion_tok);
     free(uish->prompt);
 }
 
