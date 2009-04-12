@@ -4,3 +4,5 @@ CMakeCache.txt
 CMakeFiles
 Makefile
 cmake_install.cmake
+flex_scan.c
+uish
