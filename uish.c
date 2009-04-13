@@ -12,16 +12,23 @@ struct predef_command_s {
     const char * name;
     uish_predef_command_t id;
 };
+#if 0
+struct compl_comm_s {
+    struct uish_comm_s * comm;
+    struct list_head_s list_el;
+};
+#endif
+
 /* local functions */
-static History * setup_history(void);
-static void cleanup_history(History * hist);
-static EditLine * setup_el(const char * name);
-static void cleanup_el(EditLine * el);
-static Tokenizer * setup_tok(const char * separator);
-static void cleanup_tok(Tokenizer * tok);
+static History *    setup_history(void);
+static void         cleanup_history(History * hist);
+static EditLine *   setup_el(const char * name);
+static void         cleanup_el(EditLine * el);
+static Tokenizer *  setup_tok(const char * separator);
+static void         cleanup_tok(Tokenizer * tok);
 static unsigned char * completion(EditLine * el, int ch);
-static char * get_prompt(EditLine * el);
-static int uish_set_prompt(struct uish_s * uish, const char * prompt);
+static char *       get_prompt(EditLine * el);
+static int          uish_set_prompt(struct uish_s * uish, const char * prompt);
 /* static data */
 static struct predef_command_s __predefined_commands[] = {
                     {"_exit", UISH_COMMAND_EXIT},
@@ -97,28 +104,97 @@ static int uish_set_prompt(struct uish_s * uish, const char * prompt) {
     return 1;
 }
 
-/* try to find ommand along the path specified by tokens */
-struct uish_comm_s * uish_find_cmd(struct uish_s * uish, const char * tokens, int count) {
+struct uish_comm_s * find_cmd(struct list_head_s * start_head,  const char ** tokens, int count) {
+    struct list_head_s * head = start_head;
+    struct uish_comm_s * result = NULL;
+    int curr_tok = 0;
+    int curr_tok_len = 0;
 
+    DBG(0, "tokens: %p count: %d\n", tokens, count);
+    if (tokens == NULL || count <= 0) 
+        return NULL;
+
+    while (curr_tok < count) {
+        struct list_head_s * it = NULL;
+        int has_match = 0;
+        int curr_tok_len = strlen(tokens[curr_tok]);
+        struct uish_comm_s * cmd = NULL;
+
+        DBG(0, "tok \'%s\' len: %d\n", tokens[curr_tok], curr_tok_len);
+        list_for(head, it) {
+            cmd = LIST_DATA(it, struct uish_comm_s);
+            DBG(0, "trying command: %s\n", cmd->name); 
+            if (strcmp(cmd->name, tokens[curr_tok]) == 0) {
+                DBG(0, "got match cmd: %s\n", cmd->name); 
+                curr_tok++;
+                head = &cmd->commands_head;
+                has_match = 1;
+                break;
+            }
+        }
+        /* no match found */
+        if (has_match == 0) {
+            DBG(0, "no match\n");
+            break;
+        }
+        if (curr_tok == count) {
+            /* last token got match -> full path is matched */
+            result = cmd;
+            DBG(0, "last from path: %s\n", cmd->name);
+        }
+    }
+    return result;
 }
+
+/* try to find ommand along the path specified by tokens */
+#if 0
+int find_compl_cmd(const char ** tokens, int count, struct list_head_s * compl) {
+    struct list_head_s * head = &local_uish->commands;
+    int curr_tok = 0;
+    struct uish_comm_s * parent_cmd = 0;
+    if (count == 0)
+        return 0;
+
+    parent_cmd = find_cmd(head, tokens, count - 1);
+    if (parent_cmd != NULL) {
+        DBG(0, "parent cmd found\n");
+    }
+    return 0;
+}
+#endif 
 
 static unsigned char * completion(EditLine * el, int ch) {
     const LineInfo * li = el_line(el);
-    char * word = NULL;
-    char * tmp = (char *) li->cursor;
-    const char * compl_str = NULL;
-    unsigned int word_len = 0;
-    unsigned int i;
     int result = CC_ERROR;
-    int only_one = 1;
     int argc = 0;
     const char ** argv = NULL;
+    struct list_head_s * compl_list_head = NULL;
+    struct list_head_s * it = NULL;
+    struct uish_comm_s * parent_cmd = NULL;
+    int last_token_len = 0;
 
     tok_line(uish_compl_tok(local_uish), li, &argc, &argv, NULL, NULL);
-    for (i = 0; i < argc; i++) {
-        printf("%s\n", argv[i]);
-    }
     tok_reset(uish_compl_tok(local_uish));
+    parent_cmd = find_cmd(&local_uish->commands, argv, argc - 1);
+    if (parent_cmd == NULL) 
+        compl_list_head = &local_uish->commands;
+    else 
+        compl_list_head = &parent_cmd->commands_head;
+
+    if (list_is_empty(compl_list_head))
+        goto return_result;
+
+    if (argc > 0)
+        last_token_len = strlen(argv[argc - 1]);
+
+    printf("\n");
+    list_for(compl_list_head, it) {
+        struct uish_comm_s * cmd = LIST_DATA(it, struct uish_comm_s);
+        if (argc == 0 || strncmp(cmd->name, argv[argc - 1], last_token_len) == 0) {
+            printf("%s\n", cmd->name);
+        }
+    }
+    result = CC_REDISPLAY;
 
 #if 0
     for (; tmp >= li->buffer; tmp--) {
@@ -157,6 +233,7 @@ static unsigned char * completion(EditLine * el, int ch) {
     }
 #endif
 /*    printf("complete\n"); */
+return_result:
     return (unsigned char *) result;
 }
 /* initialise main struct */
@@ -221,18 +298,23 @@ void uish_end(struct uish_s * uish) {
 res_status_t uish_handle_input(struct uish_s * uish) {
     int len = 0;
     const char * input = NULL;
+    res_status_t result = RES_CONTINUE;
 
     input = el_gets(uish_el(uish), &len);
-    if (input == NULL)
-        return RES_EXIT;
+    if (input == NULL) {
+        result = RES_EXIT;
+        goto input_continue;
+    }
 
     if (len > 0) {
         const LineInfo * li = el_line(uish_el(uish));
         int argc = 0;
         const char ** argv = NULL;
         int res = 0;
+        struct uish_comm_s * cmd = NULL;
 
         res = tok_line(uish_tok(uish), li, &argc, &argv, NULL, NULL);
+#if 0
         if (res == 0) {
             int i = 0;
             printf("arg count: %d\n", argc);
@@ -245,13 +327,33 @@ res_status_t uish_handle_input(struct uish_s * uish) {
                 }
             }
         }
+#endif
         tok_reset(uish_tok(uish));
+        cmd = find_cmd(&local_uish->commands, argv, argc);
+        if (cmd == NULL || cmd->type == UISH_CMDTYPE_NONE) {
+            printf("command not found\n");
+            goto input_continue;
+        }
+
+        printf("handling command\n");
+        if (cmd->type == UISH_CMDTYPE_USER) {
+            system(cmd->cmd.command);
+        } else if (cmd->type == UISH_CMDTYPE_PREDEFINED) {
+            switch (cmd->cmd.predef_command) {
+                case UISH_COMMAND_EXIT:
+                    result = RES_EXIT;
+                    break;
+                default:
+                    break;
+            }
+        }
         /*
         if (strncmp(input, "exit", len) == 0 || strncmp(input, "logout", len) == 0)
             return RES_EXIT;
             */
     }
-    return RES_CONTINUE;
+input_continue:
+    return result;
 }
 
 /* command handling */
@@ -266,6 +368,7 @@ struct uish_comm_s * uish_cmd_new(char * text) {
         }
         list_init(&res->commands_head, NULL);
         list_init(&res->list_el, res);
+        res->type = UISH_CMDTYPE_NONE;
     } else {
         DBG(0, "allocating command failed\n");
     }

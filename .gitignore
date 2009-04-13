@@ -5,4 +5,5 @@ CMakeFiles
 Makefile
 cmake_install.cmake
 flex_scan.c
+config.h
 uish

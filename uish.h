@@ -13,7 +13,8 @@ typedef enum {
 } uish_predef_command_t;
 
 typedef enum {
-    UISH_CMDTYPE_USER = 0,
+    UISH_CMDTYPE_NONE = 0,
+    UISH_CMDTYPE_USER,
     UISH_CMDTYPE_PREDEFINED
 } uish_cmdtype_t;
 
@@ -53,7 +54,6 @@ int uish_init(struct uish_s * uish, const char * self, const char * prompt, FILE
 void uish_end(struct uish_s * uish);
 res_status_t uish_handle_input(struct uish_s * uish);
 void uish_set_commands(struct uish_s * uish, struct list_head_s * commands);
-struct uish_comm_s * uish_find_cmd(struct uish_s * uish, const char * tokens, int count);
 /* command structure manipulation */
 struct uish_comm_s * uish_cmd_new(char * text);
 void uish_cmd_free(struct uish_comm_s * comm);

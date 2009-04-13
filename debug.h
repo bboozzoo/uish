@@ -1,7 +1,9 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 #include <stdio.h>
+#include "config.h"
 
+#ifdef ENABLE_DEBUG
 /**
  * @brief initialise debug
  */
@@ -19,6 +21,11 @@ void dbg_log(int lvl, const char * fcn, const char * fil, unsigned int line, con
         do { \
             dbg_log(lvl, __FUNCTION__, __FILE__, __LINE__, __VA_ARGS__); \
         } while(0)
+#else
+#define dbg_init(...) 
+#define dbg_log(...)
+#define DBG(...) 
+#endif
 
 #endif /* __DEBUG_H__ */
 

@@ -31,7 +31,7 @@ struct parser_s {
 /* allowed state transitions specification */
 parse_states_t __states[STATE_MAX][STATE_MAX] = {
 /* to: NULL , CMD, CMDNAME, STR, SECTST, SECTEN, SEMICOL */ /* from */
-    {      0,   1,       0,   0,      0,      0,      0}, /* NULL */
+    {      0,   1,       0,   0,      0,      1,      0}, /* NULL */
     {      0,   0,       1,   0,      0,      0,      0}, /* CMD */
     {      0,   0,       0,   1,      1,      0,      0}, /* CMD NAME */
     {      0,   0,       0,   0,      0,      0,      1}, /* STRING */

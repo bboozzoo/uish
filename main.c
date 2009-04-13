@@ -72,7 +72,7 @@ int main(int argc, const char * argv[]) {
     int optchar = 0;
 
     config_file = find_config_file();
-    dbg_init(stderr, 1, 1); 
+    dbg_init(stderr, 0, 1); 
     /* setup signals */
     DBG(0, "setup signals\n");
     setup_signals();

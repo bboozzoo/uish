@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include "debug.h"
 /* 
  * debug level, msg of lvl < than level will be
@@ -34,7 +35,7 @@ void dbg_log(int lvl, const char * fcn, const char * fil, unsigned int line, con
         NULL != fcn &&
         NULL != fil &&
         0 != line) {
-        fprintf(dest, "%10s:%-4d|%s: ", fil, line, fcn);
+        fprintf(dest, "%10s:%-4d|%s: ", strrchr(fil, '/') + 1, line, fcn);
     }
 
     va_start(l, format);
